@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>ピボットテーブル学習アプリ（Web版）</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <style>
+    body { font-family: system-ui; padding: 20px; background: #f7f7fa; }
+    h2 { margin-top: 0; }
+    .card {
+      background: #fff;
+      padding: 16px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      border: 1px solid #ddd;
+    }
+    select, button { padding: 6px; margin-right: 6px; }
+    table { border-collapse: collapse; margin-top: 20px; background: #fff; }
+    th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: center; }
+    th { background: #eee; }
+  </style>
+</head>
+
+<body>
+
+<h2>ピボットテーブル学習アプリ（Web版）</h2>
+
+<!-- ▼ 説明カード -->
+<div class="card">
+  <h3>📘 ピボットテーブルとは？</h3>
+  <p>
+    ピボットテーブルは、たくさんのデータを
+    <strong>「行 × 列 × 集計」</strong>でまとめるための機能です。
+    Excel の代表的な分析ツールで、売上・アンケート・勤怠など
+    さまざまなデータを簡単に集計できます。
+  </p>
+</div>
+
+<!-- ▼ 例データ（テーブル表示） -->
+<div class="card">
+  <h3>📘 使用する例データ（この表を使ってピボットを作ります）</h3>
+
+  <table>
+    <tr><th>日付</th><th>地域</th><th>商品</th><th>売上</th></tr>
+    <tr><td>2025/01/01</td><td>東京</td><td>A</td><td>1200</td></tr>
+    <tr><td>2025/01/01</td><td>大阪</td><td>B</td><td>800</td></tr>
+    <tr><td>2025/01/02</td><td>東京</td><td>A</td><td>1500</td></tr>
+    <tr><td>2025/01/02</td><td>名古屋</td><td>B</td><td>900</td></tr>
+    <tr><td>2025/01/03</td><td>東京</td><td>C</td><td>700</td></tr>
+    <tr><td>2025/01/03</td><td>大阪</td><td>A</td><td>1100</td></tr>
+  </table>
+
+  <p style="margin-top:10px; font-size:0.9rem; color:#555;">
+    ※ この表のデータを使って、自由にピボットテーブルを作成できます。
+  </p>
+</div>
+
+<!-- ▼ 自由に触れるモード -->
+<div class="card">
+  <h3>📘 自由にピボットを作ってみよう</h3>
+  <p>以下の設定を使って、自由にピボットテーブルを作成できます。</p>
+
+  行：<select id="row-select"></select>
+  列：<select id="col-select"></select>
+  値：<select id="val-select"></select>
+
+  集計：
+  <select id="agg-select">
+    <option value="count">COUNT（件数）</option>
+    <option value="sum">SUM（合計）</option>
+  </select>
+
+  <button id="btn-generate">ピボット生成</button>
+</div>
+
+<div id="pivot-result"></div>
+
+<script>
+  /* ▼ 例データ */
+  const data = [
+    { 日付: "2025/01/01", 地域: "東京", 商品: "A", 売上: 1200 },
+    { 日付: "2025/01/01", 地域: "大阪", 商品: "B", 売上: 800 },
+    { 日付: "2025/01/02", 地域: "東京", 商品: "A", 売上: 1500 },
+    { 日付: "2025/01/02", 地域: "名古屋", 商品: "B", 売上: 900 },
+    { 日付: "2025/01/03", 地域: "東京", 商品: "C", 売上: 700 },
+    { 日付: "2025/01/03", 地域: "大阪", 商品: "A", 売上: 1100 }
+  ];
+
+  /* ▼ セレクタ初期化 */
+  window.onload = () => {
+    const columns = Object.keys(data[0]);
+    const rowSel = document.getElementById("row-select");
+    const colSel = document.getElementById("col-select");
+    const valSel = document.getElementById("val-select");
+
+    [rowSel, colSel, valSel].forEach(sel => {
+      columns.forEach(col => {
+        const opt = document.createElement("option");
+        opt.value = col;
+        opt.textContent = col;
+        sel.appendChild(opt);
+      });
+    });
+  };
+
+  /* ▼ ピボット生成 */
+  document.getElementById("btn-generate").addEventListener("click", () => {
+    const rowKey = document.getElementById("row-select").value;
+    const colKey = document.getElementById("col-select").value;
+    const valKey = document.getElementById("val-select").value;
+    const agg = document.getElementById("agg-select").value;
+
+    const pivot = {};
+
+    data.forEach(row => {
+      const r = row[rowKey];
+      const c = row[colKey];
+      const v = Number(row[valKey] || 0);
+
+      if (!pivot[r]) pivot[r] = {};
+      if (!pivot[r][c]) pivot[r][c] = [];
+
+      pivot[r][c].push(v);
+    });
+
+    const rowLabels = Object.keys(pivot);
+    const colLabels = [...new Set(data.map(row => row[colKey]))];
+
+    let html = "<table><tr><th></th>";
+
+    colLabels.forEach(c => html += `<th>${c}</th>`);
+    html += "</tr>";
+
+    rowLabels.forEach(r => {
+      html += `<tr><th>${r}</th>`;
+      colLabels.forEach(c => {
+        const arr = pivot[r][c] || [];
+        let val = 0;
+
+        if (agg === "count") val = arr.length;
+        if (agg === "sum") val = arr.reduce((a,b)=>a+b,0);
+
+        html += `<td>${val}</td>`;
+      });
+      html += "</tr>";
+    });
+
+    html += "</table>";
+
+    document.getElementById("pivot-result").innerHTML = html;
+  });
+</script>
+
+</body>
+</html>
